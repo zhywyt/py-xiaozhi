@@ -1,5 +1,5 @@
 import socket
-
+from src.utils import get_device_id
 # 🔹 创建全局 UDP 套接字
 udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
@@ -7,7 +7,7 @@ udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 OTA_VERSION_URL = 'https://api.tenclass.net/xiaozhi/ota/'
 
 # 🔹 设备 MAC 地址
-MAC_ADDR = 'cd:32:f4:3d:b5:ba'
+MAC_ADDR = get_device_id()
 
 # 🔹 MQTT 服务器信息
 mqtt_info = {}

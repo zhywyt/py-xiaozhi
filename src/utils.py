@@ -1,6 +1,14 @@
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
+import uuid
 
+# def get_mac_address():
+#     mac = uuid.UUID(int=uuid.getnode()).hex[-12:]
+#     return ":".join([mac[i:i+2] for i in range(0, 12, 2)])
+#
+# # 使用方法
+# mac_address = get_mac_address()
+# print(f"MAC地址: {mac_address}")
 def aes_ctr_encrypt(key, nonce, plaintext):
     """AES-CTR模式加密函数
     Args:
@@ -28,3 +36,8 @@ def aes_ctr_decrypt(key, nonce, ciphertext):
     decryptor = cipher.decryptor()
     plaintext = decryptor.update(ciphertext) + decryptor.finalize()
     return plaintext
+
+def get_device_id():
+    mac = uuid.UUID(int=uuid.getnode()).hex[-12:]
+
+    return ":".join([mac[i:i + 2] for i in range(0, 12, 2)])
