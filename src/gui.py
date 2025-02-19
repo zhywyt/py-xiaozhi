@@ -35,7 +35,7 @@ class GUI:
             to=100,
             command=lambda v: self.update_volume(int(float(v)))
         )
-        self.volume_scale.set(50)
+        self.volume_scale.set(70)
         self.volume_scale.pack(side=tk.LEFT, padx=10)
 
         # 控制按钮
@@ -68,18 +68,7 @@ class GUI:
                 src.config.udp_socket.close()
                 src.config.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # 发送设备握手协议
-            hello_msg = {
-                "type": "hello",
-                "version": 3,
-                "transport": "udp",
-                "audio_params": {
-                    "format": "opus",
-                    "sample_rate": 16000,  # 16kHz采样率
-                    "channels": 1,  # 单声道
-                    "frame_duration": 60  # 60ms帧时长
-                }
-            }
-            self.mqtt_client.publish(hello_msg)
+            self.mqtt_client.publish(src.config.aes_opus_info)
 
 
         # 中断正在播放的语音
@@ -95,9 +84,10 @@ class GUI:
                 "session_id": session_id,
                 "type": "listen",
                 "state": "start",
-                "mode": "manual"
+                "mode": "manual"  # 手动模式
             }
             self.mqtt_client.publish(listen_msg)
+            self.update_button_status('松开以停止')
 
     def on_button_release(self, event):
         """按钮释放事件处理
@@ -111,12 +101,17 @@ class GUI:
                 "state": "stop"
             }
             self.mqtt_client.publish(stop_msg)
+            self.update_button_status('按住说话')
 
     def update_status(self):
         """更新状态显示"""
         status = "已连接" if self.mqtt_client.conn_state else "未连接"
         self.status_label.config(text=f"状态: {status} | TTS状态: {self.mqtt_client.tts_state}")
-        self.root.after(1000, self.update_status)
+        self.root.after(500, self.update_status)
+
+
+    def update_button_status(self, touch_state: str):
+        self.talk_btn.config(text=touch_state)
 
     def on_close(self):
         """关闭窗口时退出"""

@@ -1,14 +1,7 @@
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import uuid
-
-# def get_mac_address():
-#     mac = uuid.UUID(int=uuid.getnode()).hex[-12:]
-#     return ":".join([mac[i:i+2] for i in range(0, 12, 2)])
-#
-# # 使用方法
-# mac_address = get_mac_address()
-# print(f"MAC地址: {mac_address}")
+import socket
 def aes_ctr_encrypt(key, nonce, plaintext):
     """AES-CTR模式加密函数
     Args:
@@ -41,3 +34,15 @@ def get_device_id():
     mac = uuid.UUID(int=uuid.getnode()).hex[-12:]
 
     return ":".join([mac[i:i + 2] for i in range(0, 12, 2)])
+
+def get_local_ip():
+    try:
+        # 创建一个临时 socket 连接来获取本机 IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return '127.0.0.1'
+

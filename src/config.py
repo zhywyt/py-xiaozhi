@@ -6,6 +6,9 @@ udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 # 🔹 OTA 服务地址
 OTA_VERSION_URL = 'https://api.tenclass.net/xiaozhi/ota/'
 
+# 🔹 WSS 服务地址
+WSS_URL = "wss://api.tenclass.net/xiaozhi/v1/"
+
 # 🔹 设备 MAC 地址
 MAC_ADDR = get_device_id()
 
@@ -24,17 +27,17 @@ aes_opus_info = {
     "version": 3,
     "transport": "udp",
     "udp": {
-        "server": "120.24.160.13",
+        "server": "",
         "port": 8884,
-        "encryption": "aes-128-ctr",
-        "key": "263094c3aa28cb42f3965a1020cb21a7",
-        "nonce": "01000000ccba9720b4bc268100000000"
+        "encryption": "",
+        "key": "",
+        "nonce": ""
     },
     "audio_params": {
         "format": "opus",
-        "sample_rate": 24000,
+        "sample_rate": 16000,
         "channels": 1,
         "frame_duration": 60
     },
-    "session_id": "b23ebfe9"
+    "session_id": None
 }

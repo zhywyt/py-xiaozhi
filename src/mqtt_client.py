@@ -5,7 +5,7 @@ import threading
 import paho.mqtt.client as mqtt
 import src.config
 from audio_transmission import send_audio,recv_audio
-import src.config
+from src.audio_player import AudioConfig, AudioPlayer
 
 
 class MQTTClient:
@@ -64,9 +64,7 @@ class MQTTClient:
         self.aes_opus_info = src.config.aes_opus_info  # 音频加密和编码信息
         self.conn_state = False                        # 连接状态标志
         self.tts_state = None                         # TTS 状态
-        self.session_id = src.config.aes_opus_info.get('session_id')  # 会话 ID
-
-
+        self.session_id = None
         self.recv_audio_thread = threading.Thread()    # 音频接收线程
         self.send_audio_thread = threading.Thread()    # 音频发送线程
         self.send_audio = send_audio                  # 音频发送函数
@@ -154,7 +152,6 @@ class MQTTClient:
             if not isinstance(msg, dict) or 'type' not in msg:
                 logging.error("❌ 消息格式错误: 缺少type字段")
                 return
-            print(msg)
             msg_type = msg.get('type')
             if msg_type == 'hello':
                 self._handle_hello_message(msg)
@@ -188,8 +185,8 @@ class MQTTClient:
             src.config.udp_socket.connect((msg['udp']['server'], msg['udp']['port']))
 
             # 更新会话信息
-            src.config.aes_opus_info.update(msg)
-            self.aes_opus_info = src.config.aes_opus_info
+            self.aes_opus_info.update(msg)
+            self.session_id = msg.get('session_id')
             self.conn_state = True
 
             # 启动音频处理线程
@@ -226,7 +223,10 @@ class MQTTClient:
             msg (dict): 包含会话终止信息的消息
         """
         try:
-            if msg.get('session_id') != self.aes_opus_info.get('session_id'):
+            print(self.aes_opus_info.get('session_id'),msg.get('session_id'))
+
+
+            if self.aes_opus_info.get('session_id') is not None and msg.get('session_id') != self.aes_opus_info.get('session_id'):
                 logging.warning("⚠️ 会话ID不匹配")
                 return
 

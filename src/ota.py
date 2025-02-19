@@ -2,6 +2,7 @@ import requests
 import json
 import logging
 from src.config import OTA_VERSION_URL, MAC_ADDR, mqtt_info
+from src.utils import get_local_ip
 
 
 def get_ota_version():
@@ -34,7 +35,6 @@ def get_ota_version():
         },
         "application": {
             "name": "xiaozhi",
-            "version": "0.9.9"
         },
         "partition_table": [],  # 省略分区表信息
         "ota": {
@@ -42,7 +42,7 @@ def get_ota_version():
         },
         "board": {
             "type": "bread-compact-wifi",
-            "ip": "192.168.124.38",
+            "ip": get_local_ip(),
             "mac": MAC_ADDR
         }
     }
@@ -71,7 +71,7 @@ def get_ota_version():
         # 确保 "mqtt" 信息存在
         if "mqtt" in response_data:
             mqtt_info.update(response_data["mqtt"])
-            logging.info(f"✅ MQTT 服务器信息已更新: {json.dumps(mqtt_info, indent=4)}")
+            logging.info(f"✅ MQTT 服务器信息已更新: {json.dumps(response_data, indent=4)}")
         else:
             logging.error("❌ OTA 服务器返回的数据无效: MQTT 信息缺失")
             raise ValueError("❌ OTA 服务器返回的数据无效，请检查服务器状态或 MAC 地址！")
