@@ -4,21 +4,20 @@ import socket
 import threading
 import paho.mqtt.client as mqtt
 import src.config
-from audio_transmission import send_audio,recv_audio
-from src.audio_player import AudioConfig, AudioPlayer
+from src.audio_transmission import send_audio,recv_audio
 
 
 class MQTTClient:
     def __init__(self):
         """初始化 MQTT 客户端连接
-        
+
         设置 MQTT 客户端配置，包括：
         - 客户端 ID、用户名和密码认证
         - TLS 加密配置
         - 连接回调函数
         - Socket 配置
         - 音频传输相关的初始化
-        
+
         Raises:
             ValueError: 当 MQTT 配置信息不完整时抛出
         """
@@ -30,9 +29,9 @@ class MQTTClient:
             callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
             client_id=src.config.mqtt_info["client_id"]
         )
-        
+
         # 设置认证信息
-        self.client.username_pw_set(username=src.config.mqtt_info["username"], 
+        self.client.username_pw_set(username=src.config.mqtt_info["username"],
                                   password=src.config.mqtt_info["password"])
 
         # 配置 TLS 加密连接
@@ -49,8 +48,8 @@ class MQTTClient:
         self.client.on_message = self.on_message
         self.client.on_disconnect = self.on_disconnect  # 当 MQTT 连接断开时触发
         # 连接到 MQTT 服务器
-        self.client.connect(src.config.mqtt_info["endpoint"], 
-                          port=8883, 
+        self.client.connect(src.config.mqtt_info["endpoint"],
+                          port=8883,
                           keepalive=60,
                           clean_start=mqtt.MQTT_CLEAN_START_FIRST_ONLY)
 
@@ -70,11 +69,13 @@ class MQTTClient:
         self.send_audio = send_audio                  # 音频发送函数
         self.recv_audio = recv_audio                  # 音频接收函数
         self.gui = None
+        self.tts_text = "待命"
+        self.emotion = "😊"
 
     @property
     def conn_state(self):
         """获取当前连接状态
-        
+
         Returns:
             bool: True 表示已连接，False 表示未连接
         """
@@ -83,7 +84,7 @@ class MQTTClient:
     @conn_state.setter
     def conn_state(self, value):
         """设置连接状态
-        
+
         Args:
             value (bool): 新的连接状态
         """
@@ -92,7 +93,7 @@ class MQTTClient:
     @property
     def tts_state(self):
         """获取当前 TTS 状态
-        
+
         Returns:
             str 或 None: TTS 的当前状态，None 表示未初始化
         """
@@ -101,15 +102,35 @@ class MQTTClient:
     @tts_state.setter
     def tts_state(self, value):
         """设置 TTS 状态
-        
+
         Args:
             value (str): 新的 TTS 状态
         """
         self._tts_state = value
 
+    @property
+    def tts_text(self):
+        """获取 TTS 文本内容"""
+        return self._tts_text
+
+    @tts_text.setter
+    def tts_text(self, value):
+        """设置 TTS 文本内容"""
+        self._tts_text = value
+
+    @property
+    def emotion(self):
+        """获取 TTS 文本内容"""
+        return self._emotion
+
+    @emotion.setter
+    def emotion(self, value):
+        """设置 TTS 文本内容"""
+        self._emotion = value
+
     def on_connect(self, client, userdata, flags, reason_code, properties):
         """MQTT 连接回调函数（V5.0协议）
-        
+
         Args:
             client: MQTT 客户端实例
             userdata: 用户定义数据（未使用）
@@ -124,9 +145,9 @@ class MQTTClient:
 
     def on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
         """MQTT 断开连接回调函数
-        
+
         处理断开连接事件，并尝试自动重连
-        
+
         Args:
             client: MQTT 客户端实例
             userdata: 用户定义数据（未使用）
@@ -155,6 +176,8 @@ class MQTTClient:
             msg_type = msg.get('type')
             if msg_type == 'hello':
                 self._handle_hello_message(msg)
+            elif msg_type == 'llm':
+                self.emotion = msg.get('text')
             elif msg_type == 'tts':
                 self._handle_tts_message(msg)
             elif msg_type == 'goodbye':
@@ -167,9 +190,9 @@ class MQTTClient:
 
     def _handle_hello_message(self, msg):
         """处理 hello 类型消息
-        
+
         建立 UDP 连接并启动音频传输线程
-        
+
         Args:
             msg (dict): 包含 UDP 服务器信息的消息
         """
@@ -199,9 +222,9 @@ class MQTTClient:
 
     def _handle_tts_message(self, msg):
         """处理 TTS 类型消息
-        
+
         更新 TTS 状态
-        
+
         Args:
             msg (dict): 包含 TTS 状态的消息
         """
@@ -210,6 +233,11 @@ class MQTTClient:
                 logging.error("❌ TTS消息缺少state字段")
                 return
             self.tts_state = msg['state']
+            # print(msg['text'])
+            if self.tts_state == "stop":
+                self.tts_text = "待命"
+            if self.tts_state == "sentence_start":
+                self.tts_text = msg['text']
             logging.info(f"✅ TTS状态更新: {self.tts_state}")
         except Exception as e:
             logging.error(f"❌ 处理TTS消息错误: {str(e)}")
