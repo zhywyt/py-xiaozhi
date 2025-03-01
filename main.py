@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument(
         '--protocol', 
         choices=['mqtt', 'websocket'], 
-        default='mqtt',
+        default='websocket',
         help='通信协议：mqtt 或 websocket'
     )
     
