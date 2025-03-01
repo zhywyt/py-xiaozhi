@@ -92,9 +92,15 @@ brew install portaudio opus python-tk ffmpeg
 pip3 install -r requirements.txt
 ```
 
-## 运行
+## GUI模式运行
 ```bash
 python main.py
+```
+
+
+## CLI模式运行
+```bash
+python main.py --mode cli
 ```
 
 ## 使用说明
@@ -137,3 +143,4 @@ python main.py
 [Xiaoxia](https://github.com/78)
 [zhh827](https://github.com/zhh827)
 [四博智联-李洪刚](https://github.com/SmartArduino)
+[HonestQiao](https://github.com/HonestQiao)

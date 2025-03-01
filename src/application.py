@@ -277,10 +277,21 @@ class Application:
 
     def _handle_output_audio(self):
         """处理音频输出"""
-        if self.device_state != DeviceState.SPEAKING or not self.output_stream.is_active():
+        if self.device_state != DeviceState.SPEAKING:
             return
-
+        
         try:
+            # 检查输出流状态
+            if not self.output_stream or not self.output_stream.is_active():
+                # 如果流不活跃，尝试重新启动
+                if self.output_stream:
+                    try:
+                        self.output_stream.start_stream()
+                        logger.info("已重新启动音频输出流")
+                    except Exception as e:
+                        logger.error(f"重新启动音频输出流失败: {e}")
+                        return
+            
             # 批量处理多个音频包以减少处理延迟
             batch_size = min(10, self.audio_decode_queue.qsize())
             if batch_size == 0:
@@ -318,11 +329,44 @@ class Application:
                               f"均值={np.mean(np.abs(pcm_array))}")
 
                 # 播放音频
-                self.output_stream.write(pcm_array.tobytes())
+                try:
+                    self.output_stream.write(pcm_array.tobytes())
+                except OSError as e:
+                    logger.error(f"播放音频时出错: {e}")
+                    # 如果是"Stream not open"错误，尝试重新初始化输出流
+                    if "Stream not open" in str(e):
+                        self._reinitialize_output_stream()
         except queue.Empty:
             pass
         except Exception as e:
             logger.error(f"处理音频输出时出错: {e}")
+
+    def _reinitialize_output_stream(self):
+        """重新初始化音频输出流"""
+        logger.info("正在重新初始化音频输出流...")
+        try:
+            # 关闭现有流
+            if self.output_stream:
+                try:
+                    if self.output_stream.is_active():
+                        self.output_stream.stop_stream()
+                    self.output_stream.close()
+                except Exception as e:
+                    logger.warning(f"关闭现有输出流时出错: {e}")
+            
+            # 创建新的输出流
+            self.output_stream = self.audio.open(
+                format=pyaudio.paInt16,
+                channels=AudioConfig.CHANNELS,
+                rate=AudioConfig.SAMPLE_RATE,
+                output=True,
+                frames_per_buffer=AudioConfig.FRAME_SIZE
+            )
+            
+            logger.info("音频输出流重新初始化成功")
+        except Exception as e:
+            logger.error(f"重新初始化音频输出流失败: {e}")
+            self.alert("错误", f"重新初始化音频设备失败: {e}")
 
     def _on_network_error(self, message):
         """网络错误回调"""
@@ -576,21 +620,39 @@ class Application:
         if state == DeviceState.IDLE:
             self.display.update_status("待命")
             self.display.update_emotion("😶")
+            # 停止输出流但不关闭它
             if self.output_stream and self.output_stream.is_active():
-                self.output_stream.stop_stream()
+                try:
+                    self.output_stream.stop_stream()
+                except Exception as e:
+                    logger.warning(f"停止输出流时出错: {e}")
         elif state == DeviceState.CONNECTING:
             self.display.update_status("连接中...")
         elif state == DeviceState.LISTENING:
             self.display.update_status("聆听中...")
             self.display.update_emotion("🙂")
             if self.input_stream and not self.input_stream.is_active():
-                self.input_stream.start_stream()
+                try:
+                    self.input_stream.start_stream()
+                except Exception as e:
+                    logger.warning(f"启动输入流时出错: {e}")
+                    self._reinitialize_input_stream()
         elif state == DeviceState.SPEAKING:
             self.display.update_status("说话中...")
-            if self.output_stream and not self.output_stream.is_active():
-                self.output_stream.start_stream()
+            # 确保输出流处于活跃状态
+            if self.output_stream:
+                if not self.output_stream.is_active():
+                    try:
+                        self.output_stream.start_stream()
+                    except Exception as e:
+                        logger.warning(f"启动输出流时出错: {e}")
+                        self._reinitialize_output_stream()
+            # 停止输入流
             if self.input_stream and self.input_stream.is_active():
-                self.input_stream.stop_stream()
+                try:
+                    self.input_stream.stop_stream()
+                except Exception as e:
+                    logger.warning(f"停止输入流时出错: {e}")
 
         # 通知状态变化
         for callback in self.on_state_changed_callbacks:
@@ -859,3 +921,30 @@ class Application:
         self.keep_listening = auto_mode
         logger.info(f"对话模式已切换为: {'自动' if auto_mode else '手动'}")
         return True
+
+    def _reinitialize_input_stream(self):
+        """重新初始化音频输入流"""
+        logger.info("正在重新初始化音频输入流...")
+        try:
+            # 关闭现有流
+            if self.input_stream:
+                try:
+                    if self.input_stream.is_active():
+                        self.input_stream.stop_stream()
+                    self.input_stream.close()
+                except Exception as e:
+                    logger.warning(f"关闭现有输入流时出错: {e}")
+            
+            # 创建新的输入流
+            self.input_stream = self.audio.open(
+                format=pyaudio.paInt16,
+                channels=AudioConfig.CHANNELS,
+                rate=AudioConfig.SAMPLE_RATE,
+                input=True,
+                frames_per_buffer=AudioConfig.FRAME_SIZE
+            )
+            
+            logger.info("音频输入流重新初始化成功")
+        except Exception as e:
+            logger.error(f"重新初始化音频输入流失败: {e}")
+            self.alert("错误", f"重新初始化音频设备失败: {e}")

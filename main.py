@@ -3,17 +3,9 @@ import logging
 import sys
 import signal
 from src.application import Application
-
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
+from src.utils.logging_config import setup_logging
 logger = logging.getLogger("Main")
+# 配置日志
 
 def parse_args():
     """解析命令行参数"""
@@ -52,6 +44,8 @@ def main():
     # 解析命令行参数
     args = parse_args()
     try:
+        # 日志
+        setup_logging()
         # 创建并运行应用程序
         app = Application.get_instance()
 

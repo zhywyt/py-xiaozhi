@@ -1,4 +1,4 @@
-app.log
+/logs
 /config
 
 .venv

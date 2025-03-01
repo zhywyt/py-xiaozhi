@@ -65,13 +65,6 @@ class CliDisplay(BaseDisplay):
             self.current_emotion = emotion
             self._print_current_status()
 
-    def update_volume(self, volume: int):
-        """更新系统音量"""
-        if volume != self.current_volume:
-            self.current_volume = volume
-            self._print_current_status()
-            # ... cli音量更新待实现 ...
-
     def start(self):
         """启动CLI显示"""
         self._print_help()
@@ -101,8 +94,6 @@ class CliDisplay(BaseDisplay):
         print("\n=== 小智Ai命令行控制 ===")
         print("可用命令：")
         print("  r     - 开始/停止对话")
-        print("  v+    - 增加音量")
-        print("  v-    - 减少音量")
         print("  s     - 显示当前状态")
         print("  q     - 退出程序")
         print("  h     - 显示此帮助信息")
@@ -121,10 +112,6 @@ class CliDisplay(BaseDisplay):
                 elif cmd == 'r':
                     if self.toggle_chat_callback:
                         self.toggle_chat_callback()
-                elif cmd == 'v+':
-                    self.update_volume(min(100, self.current_volume + 10))
-                elif cmd == 'v-':
-                    self.update_volume(max(0, self.current_volume - 10))
                 elif cmd == 's':
                     self._print_current_status()
                 else:
