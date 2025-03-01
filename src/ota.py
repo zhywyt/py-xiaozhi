@@ -1,8 +1,15 @@
 import requests
 import json
 import logging
-from src.config import OTA_VERSION_URL, MAC_ADDR, mqtt_info
-from src.utils import get_local_ip
+
+from src.utils.config_manager import ConfigManager
+from src.utils.system_info import get_local_ip
+
+# 获取配置管理器实例
+config = ConfigManager.get_instance()
+
+# 配置日志
+logger = logging.getLogger("Ota")
 
 
 def get_ota_version():
@@ -16,6 +23,10 @@ def get_ota_version():
         ValueError: 当 MQTT 信息缺失或服务器返回无效数据时抛出
         requests.RequestException: 当网络请求失败时抛出
     """
+    MAC_ADDR = config.get_device_id()
+    OTA_VERSION_URL = config.get_config("NETWORK.OTA_VERSION_URL")
+
+
     headers = {
         "Device-Id": MAC_ADDR,
         "Content-Type": "application/json"
@@ -59,27 +70,27 @@ def get_ota_version():
 
         # 检查 HTTP 状态码
         if response.status_code != 200:
-            logging.error(f"❌ OTA 服务器错误: HTTP {response.status_code}")
-            raise ValueError(f"❌ OTA 服务器返回错误状态码: {response.status_code}")
+            logging.error(f"OTA 服务器错误: HTTP {response.status_code}")
+            raise ValueError(f"OTA 服务器返回错误状态码: {response.status_code}")
 
         # 解析 JSON 数据
         response_data = response.json()
 
         # 调试信息：打印完整的 OTA 响应
-        logging.debug(f"🔍 OTA 服务器返回数据: {json.dumps(response_data, indent=4, ensure_ascii=False)}")
+        logging.debug(f"OTA 服务器返回数据: {json.dumps(response_data, indent=4, ensure_ascii=False)}")
 
         # 确保 "mqtt" 信息存在
         if "mqtt" in response_data:
-            mqtt_info.update(response_data["mqtt"])
-            logging.info(f"✅ MQTT 服务器信息已更新: {json.dumps(response_data, indent=4)}")
+            logging.info(f"MQTT 服务器信息已更新: {json.dumps(response_data, indent=4)}")
+            return response_data["mqtt"]
         else:
-            logging.error("❌ OTA 服务器返回的数据无效: MQTT 信息缺失")
-            raise ValueError("❌ OTA 服务器返回的数据无效，请检查服务器状态或 MAC 地址！")
+            logging.error("OTA 服务器返回的数据无效: MQTT 信息缺失")
+            raise ValueError("OTA 服务器返回的数据无效，请检查服务器状态或 MAC 地址！")
 
     except requests.Timeout:
-        logging.error("❌ OTA 请求超时，请检查网络或服务器状态")
-        raise ValueError("❌ OTA 请求超时！请稍后重试。")
+        logging.error("OTA 请求超时，请检查网络或服务器状态")
+        raise ValueError("OTA 请求超时！请稍后重试。")
 
     except requests.RequestException as e:
-        logging.error(f"❌ OTA 请求失败: {e}")
-        raise ValueError("❌ 无法连接到 OTA 服务器，请检查网络连接！")
+        logging.error(f"OTA 请求失败: {e}")
+        raise ValueError("无法连接到 OTA 服务器，请检查网络连接！")

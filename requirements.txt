@@ -1,8 +1,12 @@
-# python=3.12.8
-requests==2.32.3
-paho-mqtt==2.1.0
-PyAudio==0.2.14
-pynput==1.7.7
+applescript==2021.2.9
+comtypes==1.4.9
+cryptography==44.0.1
+numpy==2.2.3
 opuslib==3.0.1
-cryptography==44.0.0
-pycaw
+paho_mqtt==2.1.0
+PyAudio==0.2.14
+pycaw==20240210
+pyperclip==1.9.0
+Requests==2.32.3
+setuptools==75.8.0
+websockets==15.0
