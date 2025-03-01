@@ -55,7 +55,6 @@ def main():
         # 创建并运行应用程序
         app = Application.get_instance()
 
-        # 这里可以添加命令行界面或简单的GUI
         logger.info("应用程序已启动，按Ctrl+C退出")
 
         # 启动应用，传入参数

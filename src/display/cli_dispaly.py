@@ -70,7 +70,7 @@ class CliDisplay(BaseDisplay):
         if volume != self.current_volume:
             self.current_volume = volume
             self._print_current_status()
-            # ... 音量控制的具体实现 ...
+            # ... cli音量更新待实现 ...
 
     def start(self):
         """启动CLI显示"""
