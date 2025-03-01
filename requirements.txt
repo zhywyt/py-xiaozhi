@@ -1,7 +1,7 @@
 applescript==2021.2.9
 comtypes==1.4.9
 cryptography==44.0.1
-numpy==2.2.3
+numpy==2.1.0
 opuslib==3.0.1
 paho_mqtt==2.1.0
 PyAudio==0.2.14
