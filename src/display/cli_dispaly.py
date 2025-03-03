@@ -7,10 +7,10 @@ logger = logging.getLogger("CliDisplay")
 
 class CliDisplay(BaseDisplay):
     def __init__(self):
+        super().__init__()  # 调用父类初始化
         """初始化CLI显示"""
         self.logger = logging.getLogger("CliDisplay")
         self.running = True
-        self.current_volume = 70
         
         # 状态相关
         self.current_status = "未连接"
@@ -95,6 +95,7 @@ class CliDisplay(BaseDisplay):
         print("可用命令：")
         print("  r     - 开始/停止对话")
         print("  s     - 显示当前状态")
+        print("  v 数字 - 设置音量(0-100)")
         print("  q     - 退出程序")
         print("  h     - 显示此帮助信息")
         print("=====================\n")
@@ -103,7 +104,7 @@ class CliDisplay(BaseDisplay):
         """键盘监听线程"""
         try:
             while self.running:
-                cmd = input().lower()
+                cmd = input().lower().strip()
                 if cmd == 'q':
                     self.on_close()
                     break
@@ -114,6 +115,16 @@ class CliDisplay(BaseDisplay):
                         self.toggle_chat_callback()
                 elif cmd == 's':
                     self._print_current_status()
+                elif cmd.startswith('v '):  # 添加音量命令处理
+                    try:
+                        volume = int(cmd.split()[1])  # 获取音量值
+                        if 0 <= volume <= 100:
+                            self.update_volume(volume)
+                            print(f"音量已设置为: {volume}%")
+                        else:
+                            print("音量必须在0-100之间")
+                    except (IndexError, ValueError):
+                        print("无效的音量值，格式：v <0-100>")
                 else:
                     print("未知命令，输入 'h' 查看帮助")
         except Exception as e:

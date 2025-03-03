@@ -11,6 +11,7 @@ from src.display.base_display import BaseDisplay
 
 class GuiDisplay(BaseDisplay):
     def __init__(self):
+        super().__init__()  # 调用父类初始化
         """创建 GUI 界面"""
         # 初始化日志
         self.logger = logging.getLogger("Display")
@@ -38,13 +39,16 @@ class GuiDisplay(BaseDisplay):
         self.volume_frame = ttk.Frame(self.root)
         self.volume_frame.pack(pady=10)
         ttk.Label(self.volume_frame, text="音量:").pack(side=tk.LEFT)
+        
+        # 添加音量更新节流
+        self.volume_update_timer = None
         self.volume_scale = ttk.Scale(
             self.volume_frame,
             from_=0,
             to=100,
-            command=lambda v: self.update_volume(int(float(v)))
+            command=self._on_volume_change
         )
-        self.volume_scale.set(70)
+        self.volume_scale.set(self.current_volume)
         self.volume_scale.pack(side=tk.LEFT, padx=10)
 
         # 控制按钮
@@ -204,101 +208,6 @@ class GuiDisplay(BaseDisplay):
         """更新表情"""
         self.update_queue.put(lambda: self.emotion_label.config(text=emotion))
 
-    def update_volume(self, volume: int):
-        """更新系统音量 - 跨平台实现"""
-        try:
-            import platform
-            system = platform.system()
-
-            if system == "Windows":
-                # Windows实现 (使用pycaw)
-                self._set_windows_volume(volume)
-            elif system == "Darwin":  # macOS
-                # macOS实现 (使用applescript)
-                self._set_macos_volume(volume)
-            elif system == "Linux":
-                # Linux实现 (尝试多种方法)
-                self._set_linux_volume(volume)
-            else:
-                self.logger.warning(f"不支持的操作系统: {system}，无法调整音量")
-        except Exception as e:
-            self.logger.error(f"设置音量失败: {e}")
-
-    def _set_windows_volume(self, volume: int):
-        """设置Windows系统音量"""
-        from ctypes import cast, POINTER
-        from comtypes import CLSCTX_ALL
-        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-
-        devices = AudioUtilities.GetSpeakers()
-        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-        volume_control = cast(interface, POINTER(IAudioEndpointVolume))
-
-        # 将百分比转换为分贝值 (范围约为 -65.25dB 到 0dB)
-        volume_db = -65.25 * (1 - volume / 100.0)
-        volume_control.SetMasterVolumeLevel(volume_db, None)
-        self.logger.debug(f"Windows音量已设置为: {volume}%")
-
-    def _set_macos_volume(self, volume: int):
-        """设置macOS系统音量"""
-        try:
-            import applescript
-            # 将0-100的音量值应用到macOS的0-100范围
-            applescript.run(f'set volume output volume {volume}')
-            self.logger.debug(f"macOS音量已设置为: {volume}%")
-        except Exception as e:
-            self.logger.warning(f"设置macOS音量失败: {e}")
-
-    def _set_linux_volume(self, volume: int):
-        """设置Linux系统音量 (尝试多种方法)"""
-        import subprocess
-        import shutil
-
-        # 检查命令是否存在
-        def cmd_exists(cmd):
-            return shutil.which(cmd) is not None
-
-        # 尝试使用不同的音量控制命令
-        if cmd_exists("amixer"):
-            try:
-                # 首先尝试PulseAudio
-                result = subprocess.run(
-                    ["amixer", "-D", "pulse", "sset", "Master", f"{volume}%"],
-                    capture_output=True,
-                    text=True
-                )
-                if result.returncode == 0:
-                    self.logger.debug(f"Linux音量(amixer/pulse)已设置为: {volume}%")
-                    return
-
-                # 如果失败，尝试默认设备
-                result = subprocess.run(
-                    ["amixer", "sset", "Master", f"{volume}%"],
-                    capture_output=True,
-                    text=True
-                )
-                if result.returncode == 0:
-                    self.logger.debug(f"Linux音量(amixer)已设置为: {volume}%")
-                    return
-            except Exception as e:
-                self.logger.debug(f"amixer设置音量失败: {e}")
-
-        if cmd_exists("pactl"):
-            try:
-                result = subprocess.run(
-                    ["pactl", "set-sink-volume", "@DEFAULT_SINK@", f"{volume}%"],
-                    capture_output=True,
-                    text=True
-                )
-                if result.returncode == 0:
-                    self.logger.debug(f"Linux音量(pactl)已设置为: {volume}%")
-                    return
-            except Exception as e:
-                self.logger.debug(f"pactl设置音量失败: {e}")
-
-        # 如果所有方法都失败
-        self.logger.error("无法设置Linux音量，请确保安装了ALSA或PulseAudio")
-
     def start_update_threads(self):
         """启动更新线程"""
 
@@ -354,3 +263,15 @@ class GuiDisplay(BaseDisplay):
             # 在手动模式下，不通过此方法更新按钮文本
             # 因为按钮文本由按下/释放事件直接控制
             pass
+
+    def _on_volume_change(self, value):
+        """处理音量滑块变化，使用节流"""
+        # 取消之前的定时器
+        if self.volume_update_timer is not None:
+            self.root.after_cancel(self.volume_update_timer)
+        
+        # 设置新的定时器，300ms 后更新音量
+        self.volume_update_timer = self.root.after(
+            300, 
+            lambda: self.update_volume(int(float(value)))
+        )
