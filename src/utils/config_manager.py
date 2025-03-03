@@ -207,6 +207,8 @@ class ConfigManager:
             },
             "application": {
                 "name": "xiaozhi",
+                "version": "1.1.2",
+                "idf_version": "v5.3.2-dirty"
             },
             "partition_table": [],  # 省略分区表信息
             "ota": {
@@ -236,7 +238,6 @@ class ConfigManager:
             
             # 解析JSON数据
             response_data = response.json()
-            
             # 调试信息：打印完整的OTA响应
             self.logger.debug(f"OTA服务器返回数据: {json.dumps(response_data, indent=4, ensure_ascii=False)}")
             
