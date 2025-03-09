@@ -1,7 +1,10 @@
 import logging
 import threading
 import time
+from typing import Optional, Callable
+
 from src.display.base_display import BaseDisplay
+from pynput import keyboard as pynput_keyboard
 
 logger = logging.getLogger("CliDisplay")
 
@@ -18,11 +21,12 @@ class CliDisplay(BaseDisplay):
         self.current_emotion = "😊"
         
         # 回调函数
-        self.toggle_chat_callback = None
+        self.auto_callback = None
         self.status_callback = None
         self.text_callback = None
         self.emotion_callback = None
-        
+        self.abort_callback = None
+
         # 按键状态
         self.is_r_pressed = False
         
@@ -32,16 +36,23 @@ class CliDisplay(BaseDisplay):
         self.last_emotion = None
         self.last_volume = None
 
+        self.keyboard_listener = None
+
     def set_callbacks(self,
-                     press_callback=None,
-                     status_callback=None,
-                     text_callback=None,
-                     emotion_callback=None):
+                      press_callback: Optional[Callable] = None,
+                      release_callback: Optional[Callable] = None,
+                      status_callback: Optional[Callable] = None,
+                      text_callback: Optional[Callable] = None,
+                      emotion_callback: Optional[Callable] = None,
+                      mode_callback: Optional[Callable] = None,
+                      auto_callback: Optional[Callable] = None,
+                      abort_callback: Optional[Callable] = None):
         """设置回调函数"""
-        self.toggle_chat_callback = press_callback
         self.status_callback = status_callback
         self.text_callback = text_callback
         self.emotion_callback = emotion_callback
+        self.auto_callback = auto_callback
+        self.abort_callback = abort_callback
 
     def update_button_status(self, text: str):
         """更新按钮状态"""
@@ -65,6 +76,42 @@ class CliDisplay(BaseDisplay):
             self.current_emotion = emotion
             self._print_current_status()
 
+    def start_keyboard_listener(self):
+        """启动键盘监听"""
+        def on_press(key):
+            try:
+                # F2 按键处理 - 自动对话
+                if key == pynput_keyboard.Key.f2:
+                    if self.auto_callback:
+                        self.auto_callback()
+                # F3 按键处理 - 打断
+                elif key == pynput_keyboard.Key.f3:
+                    if self.abort_callback:
+                        self.abort_callback()
+            except Exception as e:
+                self.logger.error(f"键盘事件处理错误: {e}")
+
+        def on_release(key):
+            try:
+                # F2 释放处理
+                if key == pynput_keyboard.Key.f2:
+                    if self.auto_callback:
+                        self.auto_callback()
+            except Exception as e:
+                self.logger.error(f"键盘事件处理错误: {e}")
+
+        self.keyboard_listener = pynput_keyboard.Listener(
+            on_press=on_press,
+            on_release=on_release
+        )
+        self.keyboard_listener.start()
+
+    def stop_keyboard_listener(self):
+        """停止键盘监听"""
+        if self.keyboard_listener:
+            self.keyboard_listener.stop()
+            self.keyboard_listener = None
+
     def start(self):
         """启动CLI显示"""
         self._print_help()
@@ -77,6 +124,9 @@ class CliDisplay(BaseDisplay):
         keyboard_thread.daemon = True
         keyboard_thread.start()
 
+        # 启动键盘监听
+        self.start_keyboard_listener()
+
         # 主循环
         try:
             while self.running:
@@ -88,12 +138,14 @@ class CliDisplay(BaseDisplay):
         """关闭CLI显示"""
         self.running = False
         print("\n正在关闭应用...")
+        self.stop_keyboard_listener()
 
     def _print_help(self):
         """打印帮助信息"""
         print("\n=== 小智Ai命令行控制 ===")
         print("可用命令：")
         print("  r     - 开始/停止对话")
+        print("  x     - 打断当前对话")
         print("  s     - 显示当前状态")
         print("  v 数字 - 设置音量(0-100)")
         print("  q     - 退出程序")
@@ -111,8 +163,11 @@ class CliDisplay(BaseDisplay):
                 elif cmd == 'h':
                     self._print_help()
                 elif cmd == 'r':
-                    if self.toggle_chat_callback:
-                        self.toggle_chat_callback()
+                    if self.auto_callback:
+                        self.auto_callback()
+                elif cmd == 'x':
+                    if self.abort_callback:
+                        self.abort_callback()
                 elif cmd == 's':
                     self._print_current_status()
                 elif cmd.startswith('v '):  # 添加音量命令处理

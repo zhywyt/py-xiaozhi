@@ -4,10 +4,8 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 import threading
 import requests
-
-from src.utils import system_info
-from src.utils.system_info import get_local_ip
-
+import socket
+import uuid
 
 logger = logging.getLogger("ConfigManager")
 
@@ -35,7 +33,13 @@ class ConfigManager:
             "WEBSOCKET_URL": "wss://api.tenclass.net/xiaozhi/v1/",
             "WEBSOCKET_ACCESS_TOKEN": "test-token",
         },
-        "MQTT_INFO": None
+        "MQTT_INFO": None,
+        "USE_WAKE_WORD": False,
+        "WAKE_WORDS": [
+            "小智",
+            "你好小明"
+        ],
+        "WAKE_WORD_MODEL_PATH": "./models/vosk-model-small-cn-0.22"
     }
 
     def __new__(cls):
@@ -145,10 +149,33 @@ class ConfigManager:
                 cls._instance = cls()
         return cls._instance
 
+    def get_mac_address(self):
+        mac = uuid.UUID(int=uuid.getnode()).hex[-12:]
+
+        return ":".join([mac[i:i + 2] for i in range(0, 12, 2)])
+
+    def generate_uuid(self) -> str:
+        """
+        生成 UUID v4
+        """
+        # 方法1：使用 Python 的 uuid 模块
+        return str(uuid.uuid4())
+
+    def get_local_ip(self):
+        try:
+            # 创建一个临时 socket 连接来获取本机 IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('8.8.8.8', 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return '127.0.0.1'
+
     def _initialize_client_id(self):
         """确保存在客户端ID"""
         if not self._config["CLIENT_ID"]:
-            client_id = system_info.generate_uuid()
+            client_id = self.generate_uuid()
             success = self.update_config("CLIENT_ID", client_id)
             if success:
                 logger.info(f"Generated new CLIENT_ID: {client_id}")
@@ -159,7 +186,7 @@ class ConfigManager:
         """确保存在设备ID"""
         if not self._config["DEVICE_ID"]:
             try:
-                device_hash = system_info.get_mac_address()
+                device_hash = self.get_mac_address()
                 success = self.update_config("DEVICE_ID", device_hash)
                 if success:
                     logger.info(f"Generated new DEVICE_ID: {device_hash}")
@@ -169,19 +196,30 @@ class ConfigManager:
                 logger.error(f"Error generating DEVICE_ID: {e}")
 
     def _initialize_mqtt_info(self):
-        """初始化MQTT信息"""
-        if not self.get_config("MQTT_INFO"):
-            try:
-                mqtt_info = self._get_ota_version()
-                if mqtt_info:
-                    self.update_config("MQTT_INFO", mqtt_info)
-                    self.logger.info("MQTT信息已成功更新")
-                    return mqtt_info
-                else:
-                    self.logger.error("无法获取MQTT信息")
-            except Exception as e:
-                self.logger.error(f"初始化MQTT信息失败: {e}")
-        return self.get_config("MQTT_INFO")
+        """
+        初始化MQTT信息
+        每次启动都重新获取最新的MQTT配置信息
+        
+        Returns:
+            dict: MQTT配置信息，获取失败则返回已保存的配置
+        """
+        try:
+            # 尝试获取新的MQTT信息
+            mqtt_info = self._get_ota_version()
+            if mqtt_info:
+                # 更新配置
+                self.update_config("MQTT_INFO", mqtt_info)
+                self.logger.info("MQTT信息已成功更新")
+                return mqtt_info
+            else:
+                self.logger.warning("获取MQTT信息失败，使用已保存的配置")
+                return self.get_config("MQTT_INFO")
+                
+        except Exception as e:
+            self.logger.error(f"初始化MQTT信息失败: {e}")
+            # 发生错误时返回已保存的配置
+            return self.get_config("MQTT_INFO")
+
 
     def _get_ota_version(self):
         """获取OTA服务器的MQTT信息"""
@@ -216,7 +254,7 @@ class ConfigManager:
             },
             "board": {
                 "type": "bread-compact-wifi",
-                "ip": get_local_ip(),
+                "ip": self.get_local_ip(),
                 "mac": MAC_ADDR
             }
         }

@@ -5,6 +5,7 @@ import queue
 import logging
 import time
 from typing import Optional, Callable
+from pynput import keyboard as pynput_keyboard
 
 from src.display.base_display import BaseDisplay
 
@@ -61,6 +62,10 @@ class GuiDisplay(BaseDisplay):
         self.manual_btn.bind("<ButtonRelease-1>", self._on_manual_button_release)
         self.manual_btn.pack(side=tk.LEFT, padx=10)
         
+        # 打断按钮 - 放在中间
+        self.abort_btn = ttk.Button(self.btn_frame, text="打断", command=self._on_abort_button_click)
+        self.abort_btn.pack(side=tk.LEFT, padx=10)
+        
         # 自动模式按钮 - 默认隐藏
         self.auto_btn = ttk.Button(self.btn_frame, text="开始对话", command=self._on_auto_button_click)
         # 不立即pack，等切换到自动模式时再显示
@@ -80,6 +85,7 @@ class GuiDisplay(BaseDisplay):
         self.emotion_update_callback = None
         self.mode_callback = None
         self.auto_callback = None
+        self.abort_callback = None
 
         # 更新队列
         self.update_queue = queue.Queue()
@@ -93,6 +99,8 @@ class GuiDisplay(BaseDisplay):
         # 启动更新处理
         self.root.after(100, self._process_updates)
 
+        self.keyboard_listener = None
+
     def set_callbacks(self,
                       press_callback: Optional[Callable] = None,
                       release_callback: Optional[Callable] = None,
@@ -100,7 +108,8 @@ class GuiDisplay(BaseDisplay):
                       text_callback: Optional[Callable] = None,
                       emotion_callback: Optional[Callable] = None,
                       mode_callback: Optional[Callable] = None,
-                      auto_callback: Optional[Callable] = None):
+                      auto_callback: Optional[Callable] = None,
+                      abort_callback: Optional[Callable] = None):
         """设置回调函数"""
         self.button_press_callback = press_callback
         self.button_release_callback = release_callback
@@ -109,6 +118,8 @@ class GuiDisplay(BaseDisplay):
         self.emotion_update_callback = emotion_callback
         self.mode_callback = mode_callback
         self.auto_callback = auto_callback
+        self.abort_callback = abort_callback
+
 
     def _process_updates(self):
         """处理更新队列"""
@@ -157,6 +168,14 @@ class GuiDisplay(BaseDisplay):
         except Exception as e:
             self.logger.error(f"自动模式按钮回调执行失败: {e}")
 
+    def _on_abort_button_click(self):
+        """打断按钮点击事件处理"""
+        try:
+            if self.abort_callback:
+                self.abort_callback()
+        except Exception as e:
+            self.logger.error(f"打断按钮回调执行失败: {e}")
+
     def _on_mode_button_click(self):
         """对话模式切换按钮点击事件"""
         try:
@@ -189,12 +208,12 @@ class GuiDisplay(BaseDisplay):
     def _switch_to_auto_mode(self):
         """切换到自动模式的UI更新"""
         self.manual_btn.pack_forget()  # 移除手动按钮
-        self.auto_btn.pack(side=tk.LEFT, padx=10, before=self.mode_btn)  # 显示自动按钮
+        self.auto_btn.pack(side=tk.LEFT, padx=10, before=self.abort_btn)  # 显示自动按钮，放在打断按钮前面
         
     def _switch_to_manual_mode(self):
         """切换到手动模式的UI更新"""
         self.auto_btn.pack_forget()  # 移除自动按钮
-        self.manual_btn.pack(side=tk.LEFT, padx=10, before=self.mode_btn)  # 显示手动按钮
+        self.manual_btn.pack(side=tk.LEFT, padx=10, before=self.abort_btn)  # 显示手动按钮，放在打断按钮前面
 
     def update_status(self, status: str):
         """更新状态文本"""
@@ -242,9 +261,12 @@ class GuiDisplay(BaseDisplay):
         """关闭窗口处理"""
         self._running = False
         self.root.destroy()
+        self.stop_keyboard_listener()
 
     def start(self):
         """启动GUI"""
+        # 启动键盘监听
+        self.start_keyboard_listener()
         # 启动更新线程
         self.start_update_threads()
         # 在主线程中运行主循环
@@ -275,3 +297,41 @@ class GuiDisplay(BaseDisplay):
             300, 
             lambda: self.update_volume(int(float(value)))
         )
+
+    def start_keyboard_listener(self):
+        """启动键盘监听"""
+        def on_press(key):
+            try:
+                # F2 按键处理 - 按住说话
+                if key == pynput_keyboard.Key.f2 and not self.auto_mode:
+                    if self.button_press_callback:
+                        self.button_press_callback()
+                        self.update_button_status("松开以停止")
+                # F3 按键处理 - 打断
+                elif key == pynput_keyboard.Key.f3:
+                    if self.abort_callback:
+                        self.abort_callback()
+            except Exception as e:
+                self.logger.error(f"键盘事件处理错误: {e}")
+
+        def on_release(key):
+            try:
+                # F2 释放处理
+                if key == pynput_keyboard.Key.f2 and not self.auto_mode:
+                    if self.button_release_callback:
+                        self.button_release_callback()
+                        self.update_button_status("按住说话")
+            except Exception as e:
+                self.logger.error(f"键盘事件处理错误: {e}")
+
+        self.keyboard_listener = pynput_keyboard.Listener(
+            on_press=on_press,
+            on_release=on_release
+        )
+        self.keyboard_listener.start()
+
+    def stop_keyboard_listener(self):
+        """停止键盘监听"""
+        if self.keyboard_listener:
+            self.keyboard_listener.stop()
+            self.keyboard_listener = None

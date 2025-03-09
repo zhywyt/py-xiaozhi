@@ -15,7 +15,10 @@ class BaseDisplay(ABC):
                      release_callback: Optional[Callable] = None,
                      status_callback: Optional[Callable] = None,
                      text_callback: Optional[Callable] = None,
-                     emotion_callback: Optional[Callable] = None):
+                     emotion_callback: Optional[Callable] = None,
+                     mode_callback: Optional[Callable] = None,
+                     auto_callback: Optional[Callable] = None,
+                     abort_callback: Optional[Callable] = None):  # 添加打断回调参数
         """设置回调函数"""
         pass
 
@@ -137,4 +140,14 @@ class BaseDisplay(ABC):
     @abstractmethod
     def on_close(self):
         """关闭显示"""
+        pass
+
+    @abstractmethod
+    def start_keyboard_listener(self):
+        """启动键盘监听"""
+        pass
+
+    @abstractmethod
+    def stop_keyboard_listener(self):
+        """停止键盘监听"""
         pass
