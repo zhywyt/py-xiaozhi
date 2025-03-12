@@ -31,6 +31,7 @@ logger = logging.getLogger("Application")
 class Application:
     """智能音箱应用程序主类"""
     _instance = None
+    host = None
 
     @classmethod
     def get_instance(cls):
@@ -91,9 +92,11 @@ class Application:
 
     def run(self, **kwargs):
         """启动应用程序"""
+        global host
         print(kwargs)
         mode = kwargs.get('mode', 'gui')
         protocol = kwargs.get('protocol', 'websocket')
+        host = kwargs.get('host', 'https://xiaozhi.me/login')
 
         self.set_protocol_type(protocol)
 
@@ -805,6 +808,7 @@ class Application:
 
     def _handle_verification_code(self, text):
         """处理验证码信息"""
+        global host
         try:
             # 提取验证码
             import re
@@ -823,7 +827,7 @@ class Application:
                 # 尝试打开浏览器
                 try:
                     import webbrowser
-                    if webbrowser.open("https://xiaozhi.me/login"):
+                    if webbrowser.open(host):
                         logger.info("已打开登录页面")
                     else:
                         logger.warning("无法打开浏览器")

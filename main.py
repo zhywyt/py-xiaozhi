@@ -26,6 +26,12 @@ def parse_args():
         default='websocket',
         help='通信协议：mqtt 或 websocket'
     )
+
+    parser.add_argument(
+        '--host',
+        default='https://xiaozhi.me/login',
+        help='小智ai服务器地址'
+    )
     
     return parser.parse_args()
 
@@ -54,7 +60,8 @@ def main():
         # 启动应用，传入参数
         app.run(
             mode=args.mode,
-            protocol=args.protocol
+            protocol=args.protocol,
+            host=args.host
         )
 
     except Exception as e:
